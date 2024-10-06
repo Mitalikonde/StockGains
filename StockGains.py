@@ -2,162 +2,181 @@ import streamlit as st
 import pandas as pd
 import yfinance as yf
 import datetime
-from datetime import date
-from plotly import graph_objs as go
 from prophet import Prophet
 from prophet.plot import plot_plotly
+import plotly.graph_objs as go
 import time
 
-st.set_page_config(layout="wide")
+# Set up page
+st.set_page_config(layout="wide", page_title="StockGains", page_icon=":chart_with_upwards_trend:")
 
-def add_meta_tag():
-    meta_tag = """
-        <head>
-            <meta name="google-site-verification" content="QBiAoAo1GAkCBe1QoWq-dQ1RjtPHeFPyzkqJqsrqW-s" />
-        </head>
-    """
-    st.markdown(meta_tag, unsafe_allow_html=True)
+# Custom CSS for unique UI and design improvements
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
 
-add_meta_tag()
+    /* Full-page background */
+    body {
+        background: linear-gradient(135deg, #000046, #1cb5e0);
+        font-family: 'Poppins', sans-serif;
+        color: white;
+    }
 
-# Navbar Section
-st.write('# StockGains')
+    /* Floating cards with glass effect */
+    .card {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 30px;
+        margin-bottom: 20px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        color: #dabcff;
+    }
 
-# Home Page Content
-st.write("## Welcome to StockGains!")
-st.write("""
-    StockGains is your go-to platform for insightful analysis of the Indian stock market.
+    /* Add spacing between StockGains and Welcome section */
+    .welcome-section {
+        margin-top: 40px;
+    }
+
+    /* Custom Navbar */
+    .navbar {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        padding: 10px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .navbar h1 {
+        font-size: 28px;
+        color: #dabcff;
+        margin: 0;
+    }
+
+    /* Buttons with animations */
+    .stButton button {
+        background-color: #1cb5e0;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 20px;
+        font-size: 16px;
+        transition: all 0.3s ease;
+    }
     
-    ### Features:
-    - **Stock Prediction**: Forecast future stock prices using historical data and advanced algorithms.
-    - **Comparative Metrics**: Analyze and compare different sectors or peer companies to gain market insights.
-    
-    Explore the options below to get started!
-""")
+    .stButton button:hover {
+        background-color: #000046;
+        transform: scale(1.05);
+    }
 
-# Radio buttons on the main page with no default selection
-selected = st.radio("Navigation", ["Stock Prediction", "Comparative Metrics"], horizontal=True)
+    /* Custom styling for date input boxes */
+    .stDateInput {
+        width: 200px;  /* Adjust the width as needed */
+        margin: auto;  /* Center the input boxes */
+    }
 
+    /* Footer */
+    footer {
+        background-color: rgba(255, 255, 255, 0.1);
+        color: white;
+        text-align: center;
+        padding: 10px;
+        border-radius: 10px;
+        margin-top: 40px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-# Initialize start and end date inputs only if a section is selected
-if selected:
-    if selected in ['Stock Prediction', 'Comparative Metrics']:
-        start = st.date_input('Start Date', datetime.date(1900, 1, 1))
-        end = st.date_input('End Date', datetime.date.today())
+# Main Function
+def main():
+    # Navbar Section
+    st.markdown("""<div class='navbar'><h1>StockGains</h1></div>""", unsafe_allow_html=True)
 
+    # Welcome Section
+    st.markdown("""
+        <div class="card welcome-section" style="text-align: center;">
+            <h2>Welcome to StockGains!</h2>
+            <p>Your go-to platform for insightful analysis of the Indian stock market.</p>
+            <p><i>Pick a feature below to get started.</i></p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # Navigation using radio buttons
+    selected = st.radio("Choose an option", ["Stock Prediction", "Comparative Metrics"], horizontal=True)
+
+    # Stock Prediction Section
+    if selected == "Stock Prediction":
+        st.markdown("<div class='card'><h2>Stock Prediction</h2></div>", unsafe_allow_html=True)
         stock_df = pd.read_csv("StockStreamTickersData.csv")
+        tickers = stock_df["Company Name"]
 
-        # Stock Prediction Section
-        if selected == 'Stock Prediction':
-            st.subheader("Stock Prediction")
-            tickers = stock_df["Company Name"]
-            a = st.selectbox('Pick a Company', tickers)
+        # Date pickers for data analysis
+        start_date = st.date_input("Start Date", datetime.date(2015, 1, 1), key='start_date')
+        end_date = st.date_input("End Date", datetime.date.today(), key='end_date')
 
-            with st.spinner('Loading...'):
-                time.sleep(2)
+        selected_company = st.selectbox('Pick a Company', tickers)
+        if selected_company:
+            symbol = stock_df.loc[stock_df['Company Name'] == selected_company, 'Symbol'].values[0]
+            data = yf.download(symbol, start=start_date, end=end_date)
 
-            dict_csv = pd.read_csv('StockStreamTickersData.csv', header=None, index_col=0).to_dict()[1]
-            symb_list = [dict_csv.get(a)]
+            if not data.empty:
+                st.write(f"Displaying raw data for {selected_company}:")
+                st.dataframe(data)
 
-            if not a:
-                st.write("Enter a Stock Name")
-            else:
-                data = yf.download(symb_list, start=start, end=end)
-                data.reset_index(inplace=True)
-                st.subheader(f'Raw Data of {a}')
-                st.write(data)
+                with st.spinner('Generating Prediction Model...'):
+                    time.sleep(2)
 
-                def plot_raw_data():
-                    fig = go.Figure()
-                    fig.add_trace(go.Scatter(x=data['Date'], y=data['Open'], name="stock_open"))
-                    fig.add_trace(go.Scatter(x=data['Date'], y=data['Close'], name="stock_close"))
-                    fig.layout.update(title_text=f'Time Series Data of {a}', xaxis_rangeslider_visible=True)
-                    st.plotly_chart(fig)
+                # Plot raw data
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines', name='Close Price'))
+                fig.update_layout(title=f"{selected_company} Stock Prices", xaxis_rangeslider_visible=True)
+                st.plotly_chart(fig)
 
-                plot_raw_data()
-                n_years = st.slider('Years of Prediction:', 1, 4)
-                period = n_years * 365
-
-                df_train = data[['Date', 'Close']]
-                df_train = df_train.rename(columns={"Date": "ds", "Close": "y"})
+                # Prophet Forecast
+                df_train = data[['Close']].reset_index()
+                df_train.columns = ['ds', 'y']
 
                 m = Prophet()
                 m.fit(df_train)
-                future = m.make_future_dataframe(periods=period)
+                future = m.make_future_dataframe(periods=365)
                 forecast = m.predict(future)
 
-                st.subheader(f'Forecast Data of {a}')
-                st.write(forecast)
-
-                st.subheader(f'Forecast Plot for {n_years} Years')
+                st.write(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail())
                 fig1 = plot_plotly(m, forecast)
                 st.plotly_chart(fig1)
 
-                st.subheader(f"Forecast Components of {a}")
-                fig2 = m.plot_components(forecast)
-                st.write(fig2)
+    # Comparative Metrics Section
+    elif selected == "Comparative Metrics":
+        st.markdown("<div class='card'><h2>Comparative Metrics</h2></div>", unsafe_allow_html=True)
+        sector_data = pd.read_csv('SectorData.csv')
+        sectors = sector_data['Sector'].unique()
 
-        # Comparative Analysis Section
-        elif selected == 'Comparative Metrics':
-            st.subheader("Comparative Analysis")
-            analysis_type = st.radio(
-                'Select Analysis Type',
-                ['Sector Comparison']
-            )
+        # Date pickers for data analysis
+        start_date = st.date_input("Start Date", datetime.date(2015, 1, 1), key='comp_start_date')
+        end_date = st.date_input("End Date", datetime.date.today(), key='comp_end_date')
+        
+        selected_sector = st.selectbox('Select a Sector', sectors)
 
-            if analysis_type == 'Sector Comparison':
-                st.write("### Sector Comparison")
+        if selected_sector:
+            sector_companies = sector_data[sector_data['Sector'] == selected_sector]['Company Name']
+            selected_companies = st.multiselect('Pick Companies', sector_companies)
 
-                # Load sector data
-                sector_data = pd.read_csv('SectorData.csv')  # Ensure you have this CSV file
-                sectors = sector_data['Sector'].unique()
-                selected_sector = st.selectbox('Select a Sector', sectors)
+            if selected_companies:
+                stock_df = pd.read_csv('StockStreamTickersData.csv')
+                symbols = [stock_df.loc[stock_df['Company Name'] == company, 'Symbol'].values[0] for company in selected_companies]
+                data = yf.download(symbols, start=start_date, end=end_date)['Adj Close']
 
-                if selected_sector:
-                    sector_companies = sector_data[sector_data['Sector'] == selected_sector]['Company Name']
-                    dropdown = st.multiselect('Pick Your Assets', sector_companies)
+                if not data.empty:
+                    st.line_chart(data)
 
-                    # Load tickers data
-                    dict_csv = pd.read_csv('StockStreamTickersData.csv', header=None, index_col=0).to_dict()[1]
-                    symb_list = [dict_csv.get(i) for i in dropdown if dict_csv.get(i) is not None]
+    # Footer Section
+    st.markdown("""
+    <footer>
+        <p>StockGains - Empowering your market insights | 2024</p>
+    </footer>
+    """, unsafe_allow_html=True)
 
-                    if len(symb_list) > 0:
-                        with st.spinner('Fetching Data...'):
-                            data = yf.download(symb_list, start=start, end=end)['Adj Close']
-                        st.line_chart(data)
-
-            # elif analysis_type == 'Peer Comparison':
-            #     st.write("### Peer Comparison")
-
-            #     # Load peers data
-            #     peers_data = pd.read_csv('PeersData.csv')  # Ensure you have this CSV file
-            #     st.write("Peers Data Columns:", peers_data.columns)  # Debugging output
-
-            #     if 'Company Name' not in peers_data.columns or 'Peers' not in peers_data.columns:
-            #         st.error("PeersData.csv must contain 'Company Name' and 'Peers' columns.")
-            #     else:
-            #         companies = peers_data['Company Name'].unique()
-            #         selected_company = st.selectbox('Select a Company', companies)
-
-            #         if selected_company:
-            #             peer_companies = peers_data[peers_data['Company Name'] == selected_company]['Peers']
-            #             st.write("Peers Found:", peer_companies.tolist())  # Debugging output
-                        
-            #             if peer_companies.empty:
-            #                 st.write("No peers found for the selected company.")
-            #             else:
-            #                 dropdown = st.multiselect('Pick Peers to Compare', peer_companies.tolist())
-
-            #                 # Load tickers data
-            #                 dict_csv = pd.read_csv('StockStreamTickersData.csv', header=None, index_col=0).to_dict()[1]
-            #                 st.write("Ticker Mapping:", dict_csv)  # Debugging output
-
-            #                 symb_list = [dict_csv.get(i) for i in dropdown if dict_csv.get(i) is not None]
-            #                 st.write("Selected Tickers:", symb_list)  # Debugging output
-
-            #                 if len(symb_list) > 0:
-            #                     with st.spinner('Fetching Data...'):
-            #                         data = yf.download(symb_list, start=start, end=end)['Adj Close']
-            #                     st.line_chart(data)
-            #                 else:
-            #                     st.write("No valid tickers selected.")
+# Run the app
+if __name__ == '__main__':
+    main()
