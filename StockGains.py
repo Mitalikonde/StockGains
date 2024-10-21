@@ -136,6 +136,7 @@ def main():
                 # Prophet Forecast
                 df_train = data[['Close']].reset_index()
                 df_train.columns = ['ds', 'y']
+                df_train['ds'] = pd.to_datetime(df_train['ds'])
 
                 m = Prophet()
                 m.fit(df_train)
