@@ -127,7 +127,7 @@ soupsieve
 stack-data
 stanio
 streamlit
-streamlit-option-menu
+streamlit-option-menu==0.4.0
 tenacity
 terminado
 threadpoolctl
