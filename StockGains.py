@@ -170,6 +170,7 @@ def main():
                 if not data.empty:
                     st.line_chart(data)
 
+    
     # Footer Section
     st.markdown("""
     <footer>
